@@ -1,9 +1,7 @@
-version: '2.1'
-
 services:
     #service 1: mysql database image creation
     db:
-      image: mysql:5.6.17
+      image: mysql:8
       container_name: mysql-db  
       environment:
         - MYSQL_ROOT_PASSWORD=spring
@@ -31,6 +29,9 @@ services:
          db :                              #dependency name (which is defined with this name 'db' in this file earlier)
            condition: service_healthy
       environment:
-        SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=false
+        # Solution 1: Allow Public Key Retrieval (less secure)
+        # SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+        # Solution 2: Use SSL (more secure)
+        SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
         SPRING_DATASOURCE_USERNAME: root
         SPRING_DATASOURCE_PASSWORD: spring
