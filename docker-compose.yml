@@ -1,37 +1,100 @@
 services:
-    #service 1: mysql database image creation
-    db:
-      image: mysql:8
-      container_name: mysql-db  
-      environment:
-        - MYSQL_ROOT_PASSWORD=spring
-      ports:
-        - "3306:3306"
-      restart: always
-      healthcheck:
-          test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
-          timeout: 20s
-          retries: 10
+  #service 1: mysql database image creation
+  db:
+    image: mysql:8
+    container_name: mysql-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=spring
+    ports:
+      - "3306:3306"
+    restart: always
+    healthcheck:
+        test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+        timeout: 20s
+        retries: 10
 
     
-    # service 2: notebook Manager app image creation
-    notebookservice:
-      image: notebook-service
-      container_name: notebook-service-app     # name of container created from image
-      build:
-        context: .                          # path to docker file
-        dockerfile: Dockerfile              # docker file name
-      ports:
-        - "8090:8080"                       # notebook service port
-      restart: always
+  # service 2: notebook Manager app image creation - server 1
+  notebookservice1:
+    image: notebook-service
+    container_name: notebook-service-app-1     # name of container created from image
+    build:
+      context: .                          # path to docker file
+      dockerfile: Dockerfile              # docker file name
+    ports:
+      - "8091:8080"                       # notebook service port
+    restart: always
 
-      depends_on:                           #define dependencies of this app
-         db :                              #dependency name (which is defined with this name 'db' in this file earlier)
-           condition: service_healthy
-      environment:
-        # Solution 1: Allow Public Key Retrieval (less secure)
-        # SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-        # Solution 2: Use SSL (more secure)
-        SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
-        SPRING_DATASOURCE_USERNAME: root
-        SPRING_DATASOURCE_PASSWORD: spring
+    depends_on:                           #define dependencies of this app
+       db :                              #dependency name (which is defined with this name 'db' in this file earlier)
+         condition: service_healthy
+    environment:
+      # Solution 1: Allow Public Key Retrieval (less secure)
+      # SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      # Solution 2: Use SSL (more secure)
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: spring
+
+
+  # service 3: notebook Manager app image creation - server 2
+  notebookservice2:
+    image: notebook-service
+    container_name: notebook-service-app-2     # name of container created from image
+    build:
+      context: .                          # path to docker file
+      dockerfile: Dockerfile              # docker file name
+    ports:
+      - "8092:8080"                       # notebook service port
+    restart: always
+
+    depends_on:                           #define dependencies of this app
+       db :                              #dependency name (which is defined with this name 'db' in this file earlier)
+         condition: service_healthy
+    environment:
+      # Solution 1: Allow Public Key Retrieval (less secure)
+      # SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      # Solution 2: Use SSL (more secure)
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: spring
+
+    # service 4: notebook Manager app image creation - server 3
+  notebookservice3:
+    image: notebook-service
+    container_name: notebook-service-app-3     # name of container created from image
+    build:
+      context: .                          # path to docker file
+      dockerfile: Dockerfile              # docker file name
+    ports:
+      - "8093:8080"                       # notebook service port
+    restart: always
+
+    depends_on: #define dependencies of this app
+      db: #dependency name (which is defined with this name 'db' in this file earlier)
+        condition: service_healthy
+    environment:
+      # Solution 1: Allow Public Key Retrieval (less secure)
+      # SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      # Solution 2: Use SSL (more secure)
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: spring
+
+  loadbalancer:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - 8090:80
+    depends_on:
+      - notebookservice1
+      - notebookservice2
+      - notebookservice3
+    volumes:
+      # - ./data:/srv
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "4.0"
+    #       memory: 16G

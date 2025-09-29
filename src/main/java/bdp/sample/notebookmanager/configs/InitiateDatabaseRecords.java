@@ -19,7 +19,7 @@ class InitiateDatabaseRecords  {
 
    @Bean
     CommandLineRunner initDatabase(NoteBookRepository repository) {
-        if(repository.findAll().size()<1) {
+        if(repository.findAll().isEmpty()) {
             return args -> {
                 try {
                     // insert initial records into DB
