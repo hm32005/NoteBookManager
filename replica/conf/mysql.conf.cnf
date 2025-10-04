@@ -1,0 +1,13 @@
+[mysqld]
+
+skip-name-resolve
+
+server-id = 2
+log_bin = mysql-bin
+binlog_do_db = mydb
+relay-log=relay-bin
+read-only=1
+gtid-mode=ON
+enforce-gtid-consistency=ON
+log-replica-updates=ON
+skip-replica-start=1

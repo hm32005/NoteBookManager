@@ -1,0 +1,105 @@
+datadir="/var/lib/mysql"
+errorlog="/var/lib/proxysql/proxysql.log"
+
+admin_variables= {
+    admin_credentials="${MYSQL_USER_PROXY_ADMIN}:${MYSQL_USER_PROXY_PASSWORD};admin:admin;radmin:radmin"
+    mysql_ifaces="0.0.0.0:6032"
+    admin-web_enabled=true
+    debug=true
+    restapi_enabled=true
+    restapi_port=6070
+}
+
+mysql_variables= {
+    threads=4
+    mysql-auditlog_filename="mysql.log"
+    max_connections=2048
+    default_query_delay=0
+    default_query_timeout=36000000
+    have_compress=true
+    poll_timeout=2000
+    mysql-autocommit_false_is_transaction=true
+    interfaces="0.0.0.0:6033"
+    default_schema="information_schema"
+    stacksize=1048576
+    server_version="8.4.0"
+    mysql-forward_autocommit=true
+    connect_timeout_server=3000
+    monitor_username="${MYSQL_USER_MONITOR_USER}"
+    monitor_password="${MYSQL_USER_MONITOR_PASSWORD}"
+    monitor_history=600000
+    monitor_connect_interval=60000
+    monitor_ping_interval=10000
+    monitor_read_only_interval=1500
+    monitor_read_only_timeout=500
+    ping_interval_server_msec=120000
+    ping_timeout_server=500
+    commands_stats=true
+    sessions_sort=true
+    connect_retries_on_failure=10
+}
+
+
+mysql_servers =
+(
+    {
+        address="mysql_source"
+        port=3306
+        hostgroup=0
+        weight=1000
+        comment="Primary Server"
+    },
+    {
+        address="mysql_replica1"
+        port=3306
+        hostgroup=1
+        weight=900
+        comment="Read Replica 1"
+    },
+    {
+        address="mysql_replica2"
+        port=3306
+        hostgroup=1
+        weight=900
+        comment="Read Replica 2"
+    },
+    {
+        address="mysql_replica3"
+        port=3306
+        hostgroup=1
+        weight=900
+        comment="Read Replica 3"
+    }
+)
+
+mysql_users =
+(
+    {
+        username = "${MYSQL_USER_APP_USER}"
+        password = "${MYSQL_USER_APP_PASSWORD}"
+        default_hostgroup = 1
+        max_connections=1000
+        default_schema="information_schema"
+        active = 1
+    }
+)
+
+mysql_query_rules =
+(
+    {
+        rule_id=1
+        active=1
+        match_pattern="^SELECT.*"
+        destination_hostgroup=1
+        apply=1
+        comment="Route SELECT to read replicas"
+    },
+    {
+        rule_id=2
+        active=1
+        match_pattern="^INSERT|UPDATE|DELETE.*"
+        destination_hostgroup=0
+        apply=1
+        comment="Route writes to primary"
+    }
+)

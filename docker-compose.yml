@@ -13,7 +13,119 @@ services:
         timeout: 20s
         retries: 10
 
-    
+  mysql_source:
+    image: mysql:8.4.0
+    env_file:
+      - path: .env
+        required: true
+      - path: ./source/mysql_source.env
+        required: true
+    container_name: "mysql_source"
+    restart: "no"
+    ports:
+      - "4406:3306"
+    volumes:
+      - ./source/conf/mysql.conf.cnf:/etc/mysql/conf.d/mysql.conf.cnf:ro
+      - ./source/conf/setup_replication_source.sql:/docker-entrypoint-initdb.d/setup_replication_source.sql:ro
+#      - ./source/data:/var/lib/mysql
+    networks:
+      - db-network
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      timeout: 20s
+      retries: 10
+
+  mysql_replica1:
+    image: mysql:8.4.0
+    env_file:
+      - path: .env
+        required: true
+      - path: ./replica/mysql_replica.env
+        required: false
+    container_name: "mysql_replica1"
+    restart: "no"
+    ports:
+      - "5506:3306"
+    depends_on:
+      - mysql_source
+    volumes:
+      - ./replica/conf/mysql.conf.cnf:/etc/mysql/conf.d/mysql.conf.cnf:ro
+#      - ./replica/data:/var/lib/mysql
+    networks:
+      - db-network
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      timeout: 20s
+      retries: 10
+
+  mysql_replica2:
+    image: mysql:8.4.0
+    env_file:
+      - path: .env
+        required: true
+      - path: ./replica/mysql_replica.env
+        required: false
+    container_name: "mysql_replica2"
+    restart: "no"
+    ports:
+      - "6606:3306"
+    depends_on:
+      - mysql_source
+    volumes:
+      - ./replica/conf/mysql.conf.cnf:/etc/mysql/conf.d/mysql.conf.cnf:ro
+#      - ./replica/data:/var/lib/mysql
+    networks:
+      - db-network
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      timeout: 20s
+      retries: 10
+
+  mysql_replica3:
+    image: mysql:8.4.0
+    env_file:
+      - path: .env
+        required: true
+      - path: ./replica/mysql_replica.env
+        required: false
+    container_name: "mysql_replica3"
+    restart: "no"
+    ports:
+      - "7706:3306"
+    depends_on:
+      - mysql_source
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      timeout: 20s
+      retries: 10
+
+  user-proxysql:
+      image: proxysql/proxysql:latest
+      container_name: "user-proxysql"
+      env_file:
+        - path: .env
+          required: true
+        - path: ./proxy/proxy.env
+          required: true
+      ports:
+        - "1033:6033"
+        - "1032:6032"
+        - "1080:6080"
+      volumes:
+        - "./proxy/conf/proxysql.cnf:/etc/proxysql.cnf"
+        - "./proxysql:/var/lib/proxysql"
+      networks:
+        - db-network
+      depends_on:
+        - mysql_source
+        - mysql_replica1
+        - mysql_replica2
+        - mysql_replica3
+      healthcheck:
+        test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+        timeout: 20s
+        retries: 10
+
   # service 2: notebook Manager app image creation - server 1
   notebookservice1:
     image: notebook-service
@@ -28,14 +140,28 @@ services:
     depends_on:                           #define dependencies of this app
        db :                              #dependency name (which is defined with this name 'db' in this file earlier)
          condition: service_healthy
+       mysql_source:                     #dependency name (which is defined with this name 'mysql_source' in this file earlier)
+         condition: service_healthy
+       mysql_replica1:                     #dependency name (which is defined with this name 'mysql_replica1' in this file earlier)
+         condition: service_healthy
+       mysql_replica2:                     #dependency name (which is defined with this name 'mysql_replica2' in this file earlier)
+         condition: service_healthy
+       mysql_replica3:                     #dependency name (which is defined with this name 'mysql_replica3' in this file earlier)
+         condition: service_healthy
     environment:
       # Solution 1: Allow Public Key Retrieval (less secure)
       # SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       # Solution 2: Use SSL (more secure)
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: spring
-
+#      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
+#      SPRING_DATASOURCE_USERNAME: root
+#      SPRING_DATASOURCE_PASSWORD: spring
+      # Use proxysql
+#      SPRING_DATASOURCE_URL: jdbc:mysql://user-proxysql:6033/notebook_manager?user=app_user&password=mydb_pwd&createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://user-proxysql:6033/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
+      SPRING_DATASOURCE_USERNAME: app_user
+      SPRING_DATASOURCE_PASSWORD: mydb_pwd
+    networks:
+      - db-network
 
   # service 3: notebook Manager app image creation - server 2
   notebookservice2:
@@ -51,13 +177,26 @@ services:
     depends_on:                           #define dependencies of this app
        db :                              #dependency name (which is defined with this name 'db' in this file earlier)
          condition: service_healthy
+       mysql_source: #dependency name (which is defined with this name 'mysql_source' in this file earlier)
+         condition: service_healthy
+       mysql_replica1: #dependency name (which is defined with this name 'mysql_replica1' in this file earlier)
+         condition: service_healthy
+       mysql_replica2: #dependency name (which is defined with this name 'mysql_replica2' in this file earlier)
+         condition: service_healthy
+       mysql_replica3: #dependency name (which is defined with this name 'mysql_replica3' in this file earlier)
+         condition: service_healthy
     environment:
       # Solution 1: Allow Public Key Retrieval (less secure)
       # SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       # Solution 2: Use SSL (more secure)
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: spring
+#      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
+#      SPRING_DATASOURCE_USERNAME: root
+#      SPRING_DATASOURCE_PASSWORD: spring
+      SPRING_DATASOURCE_URL: jdbc:mysql://user-proxysql:6033/notebook_manager?user=app_user&password=mydb_pwd&createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: app_user
+      SPRING_DATASOURCE_PASSWORD: mydb_pwd
+    networks:
+      - db-network
 
     # service 4: notebook Manager app image creation - server 3
   notebookservice3:
@@ -73,19 +212,32 @@ services:
     depends_on: #define dependencies of this app
       db: #dependency name (which is defined with this name 'db' in this file earlier)
         condition: service_healthy
+      mysql_source: #dependency name (which is defined with this name 'mysql_source' in this file earlier)
+        condition: service_healthy
+      mysql_replica1: #dependency name (which is defined with this name 'mysql_replica1' in this file earlier)
+        condition: service_healthy
+      mysql_replica2: #dependency name (which is defined with this name 'mysql_replica2' in this file earlier)
+        condition: service_healthy
+      mysql_replica3: #dependency name (which is defined with this name 'mysql_replica3' in this file earlier)
+        condition: service_healthy
     environment:
       # Solution 1: Allow Public Key Retrieval (less secure)
       # SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       # Solution 2: Use SSL (more secure)
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: spring
+#      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
+#      SPRING_DATASOURCE_USERNAME: root
+#      SPRING_DATASOURCE_PASSWORD: spring
+      SPRING_DATASOURCE_URL: jdbc:mysql://user-proxysql:6033/notebook_manager?user=app_user&password=mydb_pwd&createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: app_user
+      SPRING_DATASOURCE_PASSWORD: mydb_pwd
+    networks:
+      - db-network
 
   loadbalancer:
     image: nginx:alpine
     restart: always
     ports:
-      - 8090:80
+      - "8090:80"
     depends_on:
       - notebookservice1
       - notebookservice2
@@ -98,3 +250,8 @@ services:
     #     limits:
     #       cpus: "4.0"
     #       memory: 16G
+    networks:
+      - db-network
+
+networks:
+  db-network:
