@@ -37,3 +37,5 @@ build/
 /proxysql
 /proxysql
 /proxysql
+/proxy/conf/proxysql.cnf
+/source/conf/setup_replication_source.sql
