@@ -36,7 +36,6 @@ services:
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: spring
 
-
   # service 3: notebook Manager app image creation - server 2
   notebookservice2:
     image: notebook-service
@@ -49,6 +48,8 @@ services:
     restart: always
 
     depends_on:                           #define dependencies of this app
+       notebookservice1:
+          condition: service_started
        db :                              #dependency name (which is defined with this name 'db' in this file earlier)
          condition: service_healthy
     environment:
@@ -71,8 +72,13 @@ services:
     restart: always
 
     depends_on: #define dependencies of this app
-      db: #dependency name (which is defined with this name 'db' in this file earlier)
+      notebookservice1:
+        condition: service_started
+      notebookservice2:
+        condition: service_started
+      db:                                 #dependency name (which is defined with this name 'db' in this file earlier)
         condition: service_healthy
+
     environment:
       # Solution 1: Allow Public Key Retrieval (less secure)
       # SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
