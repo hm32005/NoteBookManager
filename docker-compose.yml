@@ -1,17 +1,5 @@
 services:
   #service 1: mysql database image creation
-  db:
-    image: mysql:8
-    container_name: mysql-db
-    environment:
-      - MYSQL_ROOT_PASSWORD=spring
-    ports:
-      - "3306:3306"
-    restart: always
-    healthcheck:
-        test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
-        timeout: 20s
-        retries: 10
 
   mysql_source:
     image: mysql:8.4.0
@@ -27,7 +15,8 @@ services:
     volumes:
       - ./source/conf/mysql.conf.cnf:/etc/mysql/conf.d/mysql.conf.cnf:ro
       - ./source/conf/setup_replication_source.sql:/docker-entrypoint-initdb.d/setup_replication_source.sql:ro
-#      - ./source/data:/var/lib/mysql
+      - ./source/sql/01_notebook_db.sql:/docker-entrypoint-initdb.d/01_notebook_db.sql:ro
+      - ./volumes/source/data:/var/lib/mysql
     networks:
       - db-network
     healthcheck:
@@ -50,7 +39,7 @@ services:
       - mysql_source
     volumes:
       - ./replica/conf/mysql.conf.cnf:/etc/mysql/conf.d/mysql.conf.cnf:ro
-#      - ./replica/data:/var/lib/mysql
+      - ./volumes/replica1/data:/var/lib/mysql
     networks:
       - db-network
     healthcheck:
@@ -73,7 +62,7 @@ services:
       - mysql_source
     volumes:
       - ./replica/conf/mysql.conf.cnf:/etc/mysql/conf.d/mysql.conf.cnf:ro
-#      - ./replica/data:/var/lib/mysql
+      - ./volumes/replica2/data:/var/lib/mysql
     networks:
       - db-network
     healthcheck:
@@ -94,6 +83,11 @@ services:
       - "7706:3306"
     depends_on:
       - mysql_source
+    volumes:
+      - ./replica/conf/mysql.conf.cnf:/etc/mysql/conf.d/mysql.conf.cnf:ro
+      - ./volumes/replica3/data:/var/lib/mysql
+    networks:
+      - db-network
     healthcheck:
       test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
       timeout: 20s
@@ -113,7 +107,7 @@ services:
         - "1080:6080"
       volumes:
         - "./proxy/conf/proxysql.cnf:/etc/proxysql.cnf"
-        - "./proxysql:/var/lib/proxysql"
+        - "./volumes/proxysql:/var/lib/proxysql"
       networks:
         - db-network
       depends_on:
@@ -155,9 +149,8 @@ services:
 #      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
 #      SPRING_DATASOURCE_USERNAME: root
 #      SPRING_DATASOURCE_PASSWORD: spring
-      # Use proxysql
-#      SPRING_DATASOURCE_URL: jdbc:mysql://user-proxysql:6033/notebook_manager?user=app_user&password=mydb_pwd&createDatabaseIfNotExist=true
-      SPRING_DATASOURCE_URL: jdbc:mysql://user-proxysql:6033/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
+      # Solution 3: Use proxysql
+      SPRING_DATASOURCE_URL: jdbc:mysql://user-proxysql:6033/notebook_manager?useSSL=true&requireSSL=true
       SPRING_DATASOURCE_USERNAME: app_user
       SPRING_DATASOURCE_PASSWORD: mydb_pwd
     networks:
@@ -192,7 +185,8 @@ services:
 #      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
 #      SPRING_DATASOURCE_USERNAME: root
 #      SPRING_DATASOURCE_PASSWORD: spring
-      SPRING_DATASOURCE_URL: jdbc:mysql://user-proxysql:6033/notebook_manager?user=app_user&password=mydb_pwd&createDatabaseIfNotExist=true
+      # Solution 3: Use proxysql
+      SPRING_DATASOURCE_URL: jdbc:mysql://user-proxysql:6033/notebook_manager?useSSL=true&requireSSL=true
       SPRING_DATASOURCE_USERNAME: app_user
       SPRING_DATASOURCE_PASSWORD: mydb_pwd
     networks:
@@ -227,7 +221,8 @@ services:
 #      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/notebook_manager?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true
 #      SPRING_DATASOURCE_USERNAME: root
 #      SPRING_DATASOURCE_PASSWORD: spring
-      SPRING_DATASOURCE_URL: jdbc:mysql://user-proxysql:6033/notebook_manager?user=app_user&password=mydb_pwd&createDatabaseIfNotExist=true
+      # Solution 3: Use proxysql
+      SPRING_DATASOURCE_URL: jdbc:mysql://user-proxysql:6033/notebook_manager?useSSL=true&requireSSL=true
       SPRING_DATASOURCE_USERNAME: app_user
       SPRING_DATASOURCE_PASSWORD: mydb_pwd
     networks:
@@ -243,7 +238,7 @@ services:
       - notebookservice2
       - notebookservice3
     volumes:
-      # - ./data:/srv
+      - ./volumes/data:/srv
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
     # deploy:
     #   resources:

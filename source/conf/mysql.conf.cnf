@@ -6,6 +6,7 @@ server-id = 1
 log_bin = mysql-bin
 binlog_format = ROW
 binlog_do_db = mydb
+binlog_do_db = notebook_manager
 gtid-mode=ON
 enforce-gtid-consistency=ON
 log-replica-updates=ON
